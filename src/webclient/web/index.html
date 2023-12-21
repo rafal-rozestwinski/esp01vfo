@@ -1,0 +1,410 @@
+<html>
+<head>
+    <title>esp01-si5351</title>
+</head>
+<body>
+<h1>esp01-si5351</h1>
+
+
+clk0 freq=<input id="clk0_freq" value=""></input> Hz
+<button id="clk0_set_button">SET</button>
+<button id="clk0_save_button">SET AS DEFAULT</button><br /><br />
+
+clk1 freq=<input id="clk1_freq" value=""></input> Hz
+<button id="clk1_set_button">SET</button>
+<button id="clk1_save_button">SET AS DEFAULT</button><br /><br />
+
+clk2 freq=<input id="clk2_freq" value=""></input> Hz
+<button id="clk2_set_button">SET</button>
+<button id="clk2_save_button">SET AS DEFAULT</button><br /><br />
+
+
+<br />
+<br />
+
+
+
+    <h2>Config</h2>
+
+    <pre id="config_text"></pre>
+
+    <h3>Settings</h3>
+
+    cal_factor=<input id="cal_factor" value=""></input>
+    <button id="cal_save_button">SAVE</button> (Set 10Mhz as freq and test with accurate frequency counter or SDR)<br /><br />
+    <br />
+
+    wifi_ssid=<input id="wifi_ssid" value=""></input>
+    <button id="wifi_ssid_save_button">SAVE</button>
+    <br />
+
+    wifi_pass=<input id="wifi_pass" value=""></input>
+    <button id="wifi_pass_save_button">SAVE</button> 
+    <br />
+    <br /><br /><br />
+
+    setting name=<input id="setting_name" value=""></input><br />
+    setting value=<input id="setting_value" value=""></input>
+    <button id="setting_save">Update Setting</button><br /><br />
+    <br />
+
+    <button id="reboot_button"><span style="color: red;">REBOOT</span></button>
+    <br />
+    <br />
+    <br />
+    <br />
+    <button id="factory_reset_button"><span style="color: red;">FACTORY_RESET</span></button>
+    <br />
+    <br /><br />
+    <br />
+    <a href="/upgrade">Firmware Upgrade</a>
+
+
+
+
+    <pre>
+        si5351 SDA = esp01 0
+        si5351 SCL = esp01 2
+        si5351 VCC = esp01 3.3V
+        si5351 GND = esp01 GND
+        pull esp01 pin 3 (serial rx) to ground (jumper) OVER 500 ohm resistor, to make it start in the AP (access point) mode.
+        pull esp01 pin 1 (serial tx) to ground (jumper) OVER 500 ohm resistor, while starting, for 15s, to force it enter factory reset. 
+                        after boot, it serves as a normal serial TX pin.
+
+        MODE:
+         0 = normal, all three clock independent.
+         1 = clk2 independent, clk0 is main (adjust freq), clk1 = same freq as clk0, inverted.
+         2 = phase offset mode, clk0 and clk1, set properties: 
+                c.si5351_phase_offset_freq = 2815000000ULL;
+                c.si5351_phase_offset_pll_freq = 73190000000ULL;
+                c.si5351_phase_offset_even_divider = 26;
+
+    </pre>
+
+
+
+</div>
+
+
+
+
+
+<script type='module'> 
+function hex_to_ascii(str1)
+ {
+	var hex  = str1.toString();
+	var str = '';
+	for (var n = 0; n < hex.length; n += 2) {
+		str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));
+	}
+	return str;
+ }
+
+ function ascii_to_hex(str)
+  {
+	var arr1 = [];
+	for (var n = 0, l = str.length; n < l; n ++) 
+     {
+		var hex = Number(str.charCodeAt(n)).toString(16);
+		arr1.push(hex);
+	 }
+	return arr1.join('');
+   }
+
+var BASE_URL = ""; // "http://192.168.1.150";
+
+
+
+
+async function get_config() {
+    console.log("config")
+    const response = await fetch("/api/v1/config", { keepalive: false, method: 'GET' });
+    const data = await response.json();
+    console.log(`ApiResponse get_config(): ${JSON.stringify(data, null, 3)}`);
+    var config_text = document.getElementById('config_text');
+    if(!config_text) {
+        console.log("config_text missing");
+    }
+    config_text.innerText = JSON.stringify(data, null, 3);
+}
+
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+
+async function get_freq0() {
+    console.log("get_freq")
+    const response = await fetch("/api/v1/freq0", { keepalive: false, method: 'GET' });
+    const data = await response.text();
+    console.log(`ApiResponse: ${data}`);
+    var clk0_freq_el = document.getElementById('clk0_freq');
+    if(!clk0_freq_el) {
+        console.log("clk0_freq_el missing");
+    }
+    clk0_freq_el.value = data;
+}
+
+async function set_freq0() {
+    var clk0_freq_el = document.getElementById('clk0_freq');
+    if(!clk0_freq_el) {
+        console.log("clk0_freq_el missing");
+    }
+    var f = clk0_freq_el.value;
+    console.log("set_freq freq=" + f)
+    var url = "/api/v1/freq0";
+    var formData = new FormData();
+    formData.append('f', f);
+    const response = await fetch(url, { keepalive: false, method: 'POST', body: formData });
+    const data = await response.text();
+    console.log(`ApiResponse: ${JSON.stringify(data)}`);
+    alert(`Updated to ${data}!`);
+    get_freq0();
+}
+
+async function save_freq0() {
+    var clk0_freq_el = document.getElementById('clk0_freq');
+    if(!clk0_freq_el) {
+        console.log("clk0_freq_el missing");
+    }
+    var f = clk0_freq_el.value;
+    console.log("api_set si5351_clk0_freq=" + f)
+    api_set("si5351_clk0_freq", f)
+    get_freq0();
+}
+
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+
+
+async function get_freq1() {
+    console.log("get_freq1")
+    const response = await fetch("/api/v1/freq1", { keepalive: false, method: 'GET' });
+    const data = await response.text();
+    console.log(`ApiResponse: ${data}`);
+    var clk1_freq_el = document.getElementById('clk1_freq');
+    if(!clk1_freq_el) {
+        console.log("clk1_freq_el missing");
+    }
+    clk1_freq_el.value = data;
+}
+
+async function set_freq1() {
+    var clk1_freq_el = document.getElementById('clk1_freq');
+    if(!clk1_freq_el) {
+        console.log("clk1_freq_el missing");
+    }
+    var f = clk1_freq_el.value;
+    console.log("set_freq freq=" + f)
+    var url = "/api/v1/freq1";
+    var formData = new FormData();
+    formData.append('f', f);
+    const response = await fetch(url, { keepalive: false, method: 'POST', body: formData });
+    const data = await response.text();
+    console.log(`ApiResponse: ${JSON.stringify(data)}`);
+    alert(`Updated to ${data}!`);
+    get_freq1();
+}
+
+async function save_freq1() {
+    var clk1_freq_el = document.getElementById('clk1_freq');
+    if(!clk1_freq_el) {
+        console.log("clk1_freq_el missing");
+    }
+    var f = clk1_freq_el.value;
+    console.log("api_set si5351_clk1_freq=" + f)
+    api_set("si5351_clk1_freq", f)
+    get_freq1();
+}
+
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+
+
+async function get_freq2() {
+    console.log("get_freq2")
+    const response = await fetch("/api/v1/freq2", { keepalive: false, method: 'GET' });
+    const data = await response.text();
+    console.log(`ApiResponse: ${data}`);
+    var clk2_freq_el = document.getElementById('clk2_freq');
+    if(!clk2_freq_el) {
+        console.log("clk2_freq_el missing");
+    }
+    clk2_freq_el.value = data;
+}
+
+async function set_freq2() {
+    var clk2_freq_el = document.getElementById('clk2_freq');
+    if(!clk2_freq_el) {
+        console.log("clk2_freq_el missing");
+    }
+    var f = clk2_freq_el.value;
+    console.log("set_freq freq=" + f)
+    var url = "/api/v1/freq2";
+    var formData = new FormData();
+    formData.append('f', f);
+    const response = await fetch(url, { keepalive: false, method: 'POST', body: formData });
+    const data = await response.text();
+    console.log(`ApiResponse: ${JSON.stringify(data)}`);
+    alert(`Updated to ${data}!`);
+    get_freq2();
+}
+
+async function save_freq2() {
+    var clk2_freq_el = document.getElementById('clk2_freq');
+    if(!clk2_freq_el) {
+        console.log("clk1_freq_el missing");
+    }
+    var f = clk2_freq_el.value;
+    console.log("api_set si5351_clk2_freq=" + f)
+    api_set("si5351_clk2_freq", f)
+    get_freq2();
+}
+
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+async function setting_save_fn() {
+    var setting_name = document.getElementById('setting_name');
+    if(!setting_name) {
+        console.log("setting_name missing");
+    }
+    var name = setting_name.value;
+    var setting_value = document.getElementById('setting_value');
+    if(!setting_value) {
+        console.log("setting_value missing");
+    }
+    var value = setting_value.value;
+    console.log("set name=" + name + " value=" + value)
+    await api_set(name, value)
+}
+
+
+
+async function api_set(name, value) {
+    console.log("api_set: " + name + " to " + value)
+    var url = "/api/v1/set";
+    var formData = new FormData();
+    formData.append('name', name);
+    formData.append('value', value);
+    const response = await fetch(url, { keepalive: false, method: 'POST', body: formData });
+    const data = await response.text();
+    console.log(`ApiResponse: ${data}`);
+    alert(`Api response: ${data}`);
+}
+
+async function set_cal() {
+    var cal_factor_el = document.getElementById('cal_factor');
+    if(!cal_factor_el) {
+        console.log("cal_factor missing");
+    }
+    var cal = cal_factor.value;
+    console.log("set si5351_cal_factor=" + cal)
+    await api_set("si5351_cal_factor", cal);
+    calibrate();
+    get_cal();
+}
+
+async function set_wifi_ssid() {
+    await api_set("wifi_ssid", document.getElementById('wifi_ssid').value);
+}
+
+async function set_wifi_pass() {
+    await api_set("wifi_pass", document.getElementById('wifi_pass').value);
+}
+
+async function calibrate() {
+    console.log("calibrate")
+    const response = await fetch("/api/v1/calibrate", { keepalive: false, method: 'GET' });
+    const data = await response.text();
+    console.log(`ApiResponse: ${data}`);
+}
+
+async function get_cal() {
+    console.log("get_cal")
+    const response = await fetch("/api/v1/cal", { keepalive: false, method: 'GET' });
+    const data = await response.text();
+    console.log(`ApiResponse: ${data}`);
+    var cal_factor_el = document.getElementById('cal_factor');
+    if(!cal_factor_el) {
+        console.log("cal_factor_el missing");
+    }
+    cal_factor_el.value = data;
+}
+
+async function reboot() {
+    console.log("reboot")
+    const response = fetch("/api/v1/reboot", { keepalive: false, method: 'POST' });
+    alert("Reload page soon (F5)!");
+    const data = response.text();
+}
+
+async function factory_reset_fn() {
+    console.log("factory_reset_fn")
+    if(confirm("Factory reset - are you sure?")) {
+        const response = fetch("/api/v1/defconfig", { keepalive: false, method: 'POST' });
+        alert("Reload page soon (F5)!");
+        const data = response.text();
+    }
+}
+
+
+function run_main() {
+    console.log("run_main()");
+    //document.querySelector('#send').addEventListener('click', send_msg)
+    //document.querySelector('#api_send_button').addEventListener('click', api_request)
+    document.querySelector('#clk0_set_button').addEventListener('click', set_freq0)
+    document.querySelector('#clk0_save_button').addEventListener('click', save_freq0)
+
+    document.querySelector('#clk1_set_button').addEventListener('click', set_freq1)
+    document.querySelector('#clk1_save_button').addEventListener('click', save_freq1)
+
+    document.querySelector('#clk2_set_button').addEventListener('click', set_freq2)
+    document.querySelector('#clk2_save_button').addEventListener('click', save_freq2)
+
+    document.querySelector('#cal_save_button').addEventListener('click', set_cal)
+    document.querySelector('#wifi_ssid_save_button').addEventListener('click', set_wifi_ssid)
+    document.querySelector('#wifi_pass_save_button').addEventListener('click', set_wifi_pass)
+    
+    document.querySelector('#reboot_button').addEventListener('click', reboot)
+    
+
+    document.querySelector('#factory_reset_button').addEventListener('click', factory_reset_fn)
+    document.querySelector('#setting_save').addEventListener('click', setting_save_fn)
+
+    //set_freq(14000000.0);
+    get_freq0();
+    get_freq1();
+    get_freq2();
+    //get_mode();
+    get_cal();
+    get_config();
+}
+
+
+if(document.readyState !== 'loading' ) {
+    run_main();
+} else {
+    document.addEventListener("DOMContentLoaded",function(){
+        run_main();
+    });
+}
+</script>
+
+</body>
+</html>

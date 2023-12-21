@@ -1,0 +1,4 @@
+__LOG.txt
+.pio/
+src/index_html_data.h
+webclient/dist/

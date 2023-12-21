@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "easyeda2kicad")(type "KiCad")(uri "${KIPRJMOD}/footprints/easyeda2kicad.kicad_sym")(options "")(descr ""))
+  (lib (name "ESP8266")(type "Legacy")(uri "${KIPRJMOD}/deps/kicad-ESP8266/ESP8266.lib")(options "")(descr ""))
+)
